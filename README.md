@@ -1,77 +1,79 @@
 # ShadowHunter-LLM-API
 
-中文 | English
+`ShadowHunter-LLM-API` 是一个面向影子大模型接口审计的单体化工作台，用于把“目标 API”与“可信基线 API”放在同一组主动探针下做并行对照，从而判断目标接口是否真的提供其声称的模型能力。
 
-## 中文介绍
+默认文档为中文版；英文版请见 `README_EN.md`。
 
-`ShadowHunter-LLM-API` 是一个基于 Streamlit 的大模型 API 审计工作台，用来把一个“自称是某模型”的目标接口，与一个可信的官方或参考接口进行对照审计。
+## 项目要解决什么问题
 
-它的核心目标很直接：
+在实际使用中，很多第三方接口会声称自己提供某个官方大模型，但真实情况可能是：
 
-- 目标 API 是否真的在提供它声称的模型？
-- 它是否只是影子 API、降级转发、代理包装，或者经过额外过滤的中间层？
-- 在相同探针下，它和基线接口的行为到底有多接近？
+- 降级模型冒充高价模型
+- 套壳代理转发为官方接口
+- 多层中转后输出被二次过滤或改写
+- 同名模型背后实际接的是完全不同的底座
 
-当前仓库将这些问题落实成一个单进程、可视化、可复核的审计工具：输入基线与目标接口配置，运行多轮主动探针，对比相似度、置信度、漂移和原始响应。
+这类“影子 API”会直接影响：
 
-## English Overview
+- 业务效果与稳定性
+- 安全策略一致性
+- 成本与采购判断
+- 学术实验与评测的可复现性
 
-`ShadowHunter-LLM-API` is a Streamlit-based audit workstation for comparing a claimed LLM API against a trusted baseline API.
+本项目的目标，就是把这类问题变成一个可以重复执行、可视化查看、可人工复核的审计流程。
 
-Its purpose is simple:
+## 项目理论依据
 
-- Does the target endpoint actually behave like the model it claims to expose?
-- Is it a shadow API, downgraded relay, wrapper, or filtered proxy?
-- Under the same probes, how close is its behavior to the baseline endpoint?
+本项目不是凭经验拍脑袋设计的，而是明确建立在以下 3 篇论文的思路之上：
 
-The current repository turns that into a practical, operator-facing workflow: configure baseline and target endpoints, run multi-round active probes, then inspect similarity, confidence, drift, and raw interactions in one place.
+### 1. LLM 主动指纹识别
 
-## Research Basis | 研究依据
+- `https://arxiv.org/pdf/2407.15847`
+- 论文：`LLMmap: Fingerprinting For Large Language Models`
 
-This repository is explicitly grounded in the following three papers, which are also required references for this project:
+这篇论文说明：即使只能黑盒访问一个大模型应用，只要设计足够有辨识度的查询，就能在少量交互中识别底层模型版本。它提供了“主动探针 + 响应对比”的核心思想，也是本项目探针审计方法的理论起点。
 
-- `https://arxiv.org/pdf/2407.15847` - `LLMmap: Fingerprinting For Large Language Models`
-- `https://arxiv.org/abs/2508.09021` - `Attacks and Defenses Against LLM Fingerprinting`
-- `https://arxiv.org/pdf/2603.01919v2` - `Real Money, Fake Models: Deceptive Model Claims in Shadow APIs`
+### 2. 指纹识别的攻防关系
 
-中文说明：
+- `https://arxiv.org/abs/2508.09021`
+- 论文：`Attacks and Defenses Against LLM Fingerprinting`
 
-- `2407.15847` 提供了主动式 LLM 指纹识别的核心思路，说明少量精心设计的交互就可以识别底层模型。
-- `2508.09021` 讨论了指纹识别的攻防两端，包括更强的查询选择策略与对抗指纹识别的过滤方法。
-- `2603.01919v2` 直接聚焦影子 API 的真实风险，说明虚假模型声明会破坏可靠性、可复现性与安全预期。
+这篇论文进一步说明，指纹识别不是静态问题，而是攻防对抗问题。一方面，查询可以被优化得更强；另一方面，影子 API 或代理层也可能通过二次模型过滤、语义保持改写等方式来掩盖自身身份。这也是为什么本项目强调多轮探针、原始响应复核和稳定性评估，而不是只看单次输出。
 
-English note:
+### 3. 影子 API 的现实危害
 
-- `2407.15847` motivates active LLM fingerprinting with carefully selected prompts.
-- `2508.09021` studies the attack-and-defense dynamics around fingerprinting.
-- `2603.01919v2` highlights the real-world shadow API problem and why endpoint auditing matters.
+- `https://arxiv.org/pdf/2603.01919v2`
+- 论文：`Real Money, Fake Models: Deceptive Model Claims in Shadow APIs`
 
-## What The Current Code Actually Implements | 当前代码实际实现了什么
+这篇论文直接聚焦“影子 API”现象本身，指出虚假模型声明会破坏可靠性、安全性、研究有效性与用户利益。它为本项目提供了明确的问题背景：我们不是单纯做模型趣味识别，而是在做面向真实风险的接口审计。
 
-The current codebase is intentionally compact and auditable.
+## 当前代码实际实现了什么
 
-当前实现重点不是大规模分布式平台，而是一个可直接运行、容易检查代码逻辑的审计闭环。
+当前仓库实现的是一个紧凑、可落地、易检查代码逻辑的审计闭环，而不是复杂的分布式平台。
 
-- Single-process Streamlit application | 单进程 Streamlit 应用
-- 8 probe dimensions, each built as a 3-turn conversation scaffold | 8 个探针维度，每个探针都是 3 轮对话结构
-- Concurrent baseline/target execution for each probe | 每个探针会并发请求基线与目标接口
-- Adaptive sampling up to 12 rounds when target-side instability remains high | 当目标端自距离过高时会自适应加采样，最高 12 轮
-- Multimodal distance using lightweight text features plus Markdown structure overlap | 使用轻量文本特征和 Markdown 结构重叠计算多模态距离
-- Summary metrics based on self-distance and cross-distance medians | 用自距离和跨端点距离的中位数计算核心指标
-- Final verdicts: `VERIFIED`, `FRAUD DETECTED`, `INCONCLUSIVE` | 最终结论支持 `VERIFIED`、`FRAUD DETECTED`、`INCONCLUSIVE`
-- UI panels for metrics, radar chart, heatmap, raw interactions, and error summaries | UI 中包含评分卡、雷达图、热力图、原始交互和错误摘要
+### 已实现能力
 
-Important / 说明：
+- 基于 Streamlit 的单进程审计工作台
+- 基线接口与目标接口并行对照
+- 8 个探针维度的主动查询
+- 每个探针采用 3 轮对话结构
+- 多轮采样与目标侧自适应追加轮次
+- 自距离 / 跨端点距离 / Cross-Self Ratio 计算
+- 相似度、可信度、可行度和最终结论输出
+- 雷达图、热力图、原始响应和错误摘要展示
+- 多种接口协议适配
 
-Although `sentence-transformers`, `numpy`, and `scipy` appear in `requirements.txt`, the checked-in implementation in `core/distance.py` currently uses a lightweight local heuristic embedding rather than a transformer encoder.
+### 需要特别说明的地方
 
-虽然 `requirements.txt` 里包含 `sentence-transformers`、`numpy`、`scipy`，但当前仓库中的 `core/distance.py` 实际采用的是轻量启发式特征，而不是已经接入的 Transformer 向量模型。README 以当前代码状态为准，不把设计稿中的能力写成已落地功能。
+虽然 `requirements.txt` 中包含了 `sentence-transformers`、`numpy`、`scipy` 等依赖，但当前仓库里真正落地的距离实现位于 `core/distance.py`，采用的是轻量启发式特征与 Markdown 结构特征，而不是已经接好的 Transformer 向量方案。
 
-## Audit Method | 审计方法
+也就是说：README 这里描述的是当前代码已经实现的能力，不把设计稿或规划文档里的内容写成“已完成”。
 
-### 1. Active Probes | 主动探针
+## 审计方法概览
 
-`core/probes.py` defines 8 dimensions / `core/probes.py` 当前定义了 8 个维度：
+### 1. 主动探针
+
+`core/probes.py` 当前定义了 8 个探针维度：
 
 - metadata hallucination
 - alignment boundary
@@ -82,53 +84,46 @@ Although `sentence-transformers`, `numpy`, and `scipy` appear in `requirements.t
 - coding style
 - self identification
 
-Each probe is sent as a 3-turn conversation / 每个探针都按 3 轮对话发送：
+每个探针都不是单条问题，而是 3 轮对话：
 
-1. harmless setup prompt | 无害的上下文铺垫
-2. bridge prompt | 收束上下文的桥接提示
-3. final trap prompt | 最终的触发型探针
+1. 先建立上下文
+2. 再缩小语境
+3. 最后触发真正的识别型问题
 
-This structure is designed to make simple filtering or shallow prompt guards easier to observe.
+这样做的目的，是更容易暴露目标接口在风格、推理、格式、身份、自我一致性等方面的底层差异。
 
-这种结构的目的，是更容易观察那些仅靠浅层过滤、简单包装或二次转发维持一致性的接口。
+### 2. 基线对照
 
-### 2. Baseline vs Target Comparison | 基线与目标对比
+`core/engine.py` 会在多轮采样中同时收集：
 
-`core/engine.py` collects probe responses across multiple rounds and computes:
+- 基线自身波动 `s_base`
+- 目标自身波动 `s_target`
+- 基线与目标之间的跨端点偏差 `c_cross`
 
-- baseline self-distance | 基线自身波动
-- target self-distance | 目标自身波动
-- cross-distance | 基线与目标之间的跨端点偏差
+系统随后对这些距离取中位数，并计算 Cross/Self Ratio，用于把“正常随机采样噪声”与“真实行为差异”区分开。
 
-The system summarizes these values with medians and derives the Cross/Self ratio.
+### 3. 输出指标
 
-系统会对这些距离分布取中位数，再计算 Cross/Self Ratio，用来区分“正常随机性”与“真正行为差异”。
+`core/statistics.py` 当前会输出几类核心指标：
 
-### 3. Similarity and Confidence | 相似度与可信度
+- `ratio`：偏差比率
+- `similarity`：目标与基线的相似度评分
+- `confidence`：本次审计结果的可信度评分
+- `verdict`：最终结论
 
-`core/statistics.py` exposes the main operator-facing metrics:
+结论目前包括：
 
-- `ratio`: `c_cross / (max(s_base, s_target) + 0.01)`
-- `similarity`: exponential decay score derived from ratio
-- `confidence`: success-rate-adjusted score penalized by unstable target behavior
-- `verdict`: final audit label
+- `VERIFIED`
+- `FRAUD DETECTED`
+- `INCONCLUSIVE`
 
-对应中文理解：
+### 4. 自适应采样
 
-- `ratio` 越高，说明目标响应相对基线偏离越大
-- `similarity` 越低，说明目标越不像基线模型
-- `confidence` 越低，说明这次审计虽然跑完了，但目标接口不稳定、失败率高，或自我波动太大
-- `verdict` 是面向操作者的最终判断标签
+如果目标接口自身波动过大，系统会继续追加采样轮次，直到结果更稳定或者达到 12 轮上限。
 
-### 4. Adaptive Sampling | 自适应采样
+## 支持的接口类型
 
-If the target endpoint remains highly unstable, the engine raises the round count until the target stabilizes or the run reaches 12 rounds.
-
-如果目标接口自身波动持续偏高，系统会继续追加轮次，直到达到更稳定的统计结果，或者触达 12 轮上限。
-
-## Supported Interface Types | 支持的接口类型
-
-The gateway layer in `adapters/llm_gateway.py` currently supports:
+`adapters/llm_gateway.py` 当前支持以下接口风格：
 
 - `openai_responses`
 - `openai_compatible`
@@ -137,33 +132,32 @@ The gateway layer in `adapters/llm_gateway.py` currently supports:
 - `gemini_native`
 - `gemini_openai_compatible`
 
-Implementation highlights / 实现细节：
+当前实现包括：
 
-- Locked sampling defaults for OpenAI-compatible paths to reduce noise | OpenAI 兼容路径默认锁定采样参数，减少噪声
-- Direct `/responses` support with nested output parsing | 支持直接调用 `/responses` 并解析嵌套返回结构
-- Fallback to `/chat/completions` on compatible-path failures | 兼容接口失败时可回退到 `/chat/completions`
-- Manual request builders for Anthropic, Gemini native, and Bedrock | Anthropic、Gemini Native、Bedrock 使用手工构造请求
-- SigV4 signing path for Bedrock | Bedrock 支持 SigV4 签名流程
-- Bilingual error explanation in the UI | UI 内置双语错误解释
+- OpenAI 兼容接口的锁参数调用
+- `/responses` 直接调用与解析
+- `/chat/completions` 回退路径
+- Anthropic 原生请求构造
+- Gemini 原生请求构造
+- Bedrock SigV4 签名路径
+- 双语错误解释
 
-## UI Overview | 界面功能
+## 界面功能
 
-`app.py` currently provides:
+`app.py` 当前提供：
 
-- bilingual UI (`zh` / `en`) | 中英文界面切换
-- separate baseline and target credentials | 分离的基线与目标配置
-- interface-specific runtime parameter inputs | 按接口类型展示参数输入项
-- configurable sampling rounds | 可配置采样轮数
-- metric cards for similarity, confidence, ratio, and feasibility | 相似度、可信度、比率、可行度评分卡
-- radar chart for 8 probe dimensions | 8 维探针雷达图
-- heatmap for cross-round distance drift | 跨轮次漂移热力图
-- raw interaction review with filtering | 支持筛选的原始交互回看
+- 中英文界面切换
+- 基线 / 目标双配置
+- 接口类型相关参数输入
+- 采样轮数控制
+- 相似度、可信度、比率、可行度评分卡
+- 8 维探针雷达图
+- 跨轮次热力图
+- 原始交互回看与状态筛选
 
-The presentation layer is implemented in `ui/charts.py` and `ui/theme.py`.
+图表在 `ui/charts.py`，主题样式在 `ui/theme.py`。
 
-图表与主题层分别在 `ui/charts.py` 和 `ui/theme.py` 中实现，整体风格更偏审计控制台而不是普通聊天前端。
-
-## Repository Structure | 项目结构
+## 项目结构
 
 ```text
 ShadowHunter-LLM-API/
@@ -182,35 +176,36 @@ ShadowHunter-LLM-API/
 │   └── theme.py
 ├── .env.example
 ├── requirements.txt
-└── README.md
+├── README.md
+└── README_EN.md
 ```
 
-## Installation | 安装
+## 安装
 
-Recommended Python version / 建议 Python 版本：`3.11+`
+建议 Python 版本：`3.11+`
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Run | 启动方式
+## 启动
 
 ```bash
 streamlit run app.py
 ```
 
-After launch, configure the following in the sidebar / 启动后在侧边栏配置：
+启动后在侧边栏配置：
 
-- baseline API key and model | 基线 API Key 与模型
-- target API key and model | 目标 API Key 与模型
-- base URLs for both sides | 双方 Base URL
-- interface type | 接口格式
-- sampling rounds | 采样轮数
-- provider-specific runtime options when needed | 按需填写特定厂商参数
+- 基线 API Key 与模型
+- 目标 API Key 与模型
+- 双方 Base URL
+- 接口格式
+- 采样轮数
+- 特定供应商运行参数
 
-## Environment Example | 环境变量示例
+## 环境变量示例
 
-The repository includes `.env.example`:
+仓库附带 `.env.example`：
 
 ```env
 SHADOWHUNTER_BASELINE_API_KEY=replace-me
@@ -220,50 +215,34 @@ SHADOWHUNTER_BASELINE_MODEL=gpt-5.2
 SHADOWHUNTER_TARGET_MODEL=gpt-5.4-mini
 ```
 
-`app.py` currently reads default model names and base URLs from environment variables, then allows overriding them in the UI.
-
-`app.py` 当前会读取环境变量中的默认模型名和 Base URL，并允许你在界面中继续覆盖。
-
-## Tests | 测试
+## 测试
 
 ```bash
 python -m pytest tests -q
 ```
 
-The tests currently cover / 当前测试覆盖：
+当前测试覆盖：
 
-- app defaults and bilingual labels | 默认表单状态和中英文文案
-- provider parameter coverage | 各类供应商参数说明
-- result shaping and error classification | 结果结构与错误分类
-- adaptive engine behavior | 自适应采样引擎行为
-- gateway request building and fallback paths | 网关请求构造与回退路径
-- Responses, OpenAI-compatible, Anthropic, Gemini, and Bedrock handling | Responses、OpenAI Compatible、Anthropic、Gemini、Bedrock 的适配逻辑
+- 默认表单状态与双语文案
+- 多类供应商参数说明
+- 结果结构与错误分类
+- 自适应采样引擎行为
+- 网关请求构造与回退逻辑
+- Responses / OpenAI Compatible / Anthropic / Gemini / Bedrock 适配逻辑
 
-## How To Read The Output | 如何理解结果
+## 如何理解结果
 
-- High `similarity` + high `confidence` | 高相似度且高可信度：目标行为和基线接近，且统计过程稳定
-- Low `similarity` | 低相似度：目标接口与基线存在明显行为偏差
-- Low `confidence` | 低可信度：虽然运行结束，但目标端不稳定、报错多或波动过大
-- `INCONCLUSIVE` | 结果不足以下结论，系统拒绝过度判断
+- 高 `similarity` + 高 `confidence`：目标行为接近基线，且本次审计较稳定
+- 低 `similarity`：目标接口与基线存在明显行为偏差
+- 低 `confidence`：虽然有结果，但目标接口不稳定、报错多或波动太大
+- `INCONCLUSIVE`：系统认为当前证据不足，不给过强结论
 
-This tool should be treated as an audit aid, not the sole source of truth.
+这个工具适合作为审计辅助系统，而不是唯一证据来源。涉及采购、生产切换、合规判断时，建议结合原始响应、接口日志与人工复核共同判断。
 
-这个工具更适合作为审计辅助系统，而不是唯一证据来源。涉及采购、合规、生产切换时，建议结合原始响应、接口日志和人工复核共同判断。
+## 当前限制
 
-## Current Limitations | 当前限制
-
-- The distance model is still lightweight and heuristic | 距离模型目前仍偏轻量、偏启发式
-- Probe selection is static, not RL-optimized yet | 探针选择目前是静态的，还不是 RL 优化版
-- The app is single-process, not a distributed audit service | 当前是单进程应用，不是分布式审计平台
-- Thresholds are transparent but not calibrated for every provider family | 阈值逻辑透明，但还没有针对所有模型家族做细粒度标定
-- Strong relays may require richer features and broader probe pools | 对于非常强的转发代理，可能需要更丰富的特征和更大的探针池
-
-## Research Context | 研究背景链接
-
-If you want to understand the research context behind this repository, start with these three required references:
-
-- `https://arxiv.org/pdf/2407.15847`
-- `https://arxiv.org/abs/2508.09021`
-- `https://arxiv.org/pdf/2603.01919v2`
-
-如果你希望先理解这个仓库背后的研究背景，也建议先读这 3 篇论文：它们分别覆盖了 LLM 指纹识别的基本方法、指纹识别的攻防关系，以及影子 API 的真实欺骗现状。
+- 距离模型仍偏轻量和启发式
+- 探针池目前是静态的，不是 RL 优化探针
+- 当前是单进程应用，不是分布式审计平台
+- 阈值逻辑透明，但未覆盖全部模型家族的精细校准
+- 对非常强的代理转发层，后续仍需要更丰富的特征与更大的探针池
