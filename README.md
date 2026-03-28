@@ -28,22 +28,19 @@
 
 ### 1. LLM 主动指纹识别
 
-- `https://arxiv.org/pdf/2407.15847`
-- 论文：`LLMmap: Fingerprinting For Large Language Models`
+- 论文：[LLMmap: Fingerprinting For Large Language Models](https://arxiv.org/pdf/2407.15847)
 
 这篇论文说明：即使只能黑盒访问一个大模型应用，只要设计足够有辨识度的查询，就能在少量交互中识别底层模型版本。它提供了“主动探针 + 响应对比”的核心思想，也是本项目探针审计方法的理论起点。
 
 ### 2. 指纹识别的攻防关系
 
-- `https://arxiv.org/abs/2508.09021`
-- 论文：`Attacks and Defenses Against LLM Fingerprinting`
+- 论文：[Attacks and Defenses Against LLM Fingerprinting](https://arxiv.org/abs/2508.09021)
 
 这篇论文进一步说明，指纹识别不是静态问题，而是攻防对抗问题。一方面，查询可以被优化得更强；另一方面，影子 API 或代理层也可能通过二次模型过滤、语义保持改写等方式来掩盖自身身份。这也是为什么本项目强调多轮探针、原始响应复核和稳定性评估，而不是只看单次输出。
 
 ### 3. 影子 API 的现实危害
 
-- `https://arxiv.org/pdf/2603.01919v2`
-- 论文：`Real Money, Fake Models: Deceptive Model Claims in Shadow APIs`
+- 论文：[Real Money, Fake Models: Deceptive Model Claims in Shadow APIs](https://arxiv.org/pdf/2603.01919v2)
 
 这篇论文直接聚焦“影子 API”现象本身，指出虚假模型声明会破坏可靠性、安全性、研究有效性与用户利益。它为本项目提供了明确的问题背景：我们不是单纯做模型趣味识别，而是在做面向真实风险的接口审计。
 
