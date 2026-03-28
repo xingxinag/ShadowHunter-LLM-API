@@ -2,7 +2,7 @@
 
 `ShadowHunter-LLM-API` 是一个面向影子大模型接口审计的单体化工作台，用于把“目标 API”与“可信基线 API”放在同一组主动探针下做并行对照，从而判断目标接口是否真的提供其声称的模型能力。
 
-默认文档为中文版；英文版请见 `[ShadowHunter-LLM-API 英文说明文档](https://github.com/xingxinag/ShadowHunter-LLM-API/blob/main/README_EN.md)`。
+默认文档为中文版；英文版请见 [ShadowHunter-LLM-API 英文说明文档](https://github.com/xingxinag/ShadowHunter-LLM-API/blob/main/README_EN.md)。
 
 ## 项目要解决什么问题
 
