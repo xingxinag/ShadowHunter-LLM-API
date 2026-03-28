@@ -14,6 +14,11 @@ class StubGateway:
         return f"{self.prefix}:{self.calls}:{prompt[:12]}"
 
 
+class ErrorGateway:
+    async def async_generate(self, prompt: str) -> str:
+        return "[ERROR] upstream failed"
+
+
 def test_engine_runs_all_probe_dimensions_and_reports_progress() -> None:
     progress = []
     engine = AuditEngine(
@@ -36,3 +41,17 @@ def test_engine_never_exceeds_twelve_rounds_when_adapting() -> None:
     result = asyncio.run(engine.run_audit(rounds=12, progress_callback=lambda _: None))
 
     assert result["rounds_completed"] == 12
+
+
+def test_engine_marks_failed_runs_as_inconclusive_and_zero_confidence() -> None:
+    engine = AuditEngine(
+        baseline_gateway=ErrorGateway(),
+        target_gateway=ErrorGateway(),
+    )
+
+    result = asyncio.run(engine.run_audit(rounds=1, progress_callback=lambda _: None))
+
+    assert result["confidence"] == 0.0
+    assert result["feasibility"] == 0.0
+    assert result["verdict"] == "INCONCLUSIVE"
+    assert "Baseline endpoint error" in result["error_summary"]

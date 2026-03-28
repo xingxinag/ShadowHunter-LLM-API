@@ -30,13 +30,20 @@ class AuditEngine:
         raw_interactions = []
         total = len(PROBE_LIBRARY) * rounds
         completed = 0
+        success_count = 0
+        total_responses = 0
 
         for round_index in range(rounds):
             tasks = [self._run_probe(round_index, probe) for probe in PROBE_LIBRARY]
             probe_rows = await asyncio.gather(*tasks)
             for row in probe_rows:
-                baseline_by_probe[row["dimension"]].append(row["baseline_response"])
-                target_by_probe[row["dimension"]].append(row["target_response"])
+                total_responses += 2
+                if not row["baseline_response"].startswith("[ERROR]"):
+                    baseline_by_probe[row["dimension"]].append(row["baseline_response"])
+                    success_count += 1
+                if not row["target_response"].startswith("[ERROR]"):
+                    target_by_probe[row["dimension"]].append(row["target_response"])
+                    success_count += 1
                 raw_interactions.append(row)
                 completed += 1
                 progress_callback(round(completed / total, 4))
@@ -62,15 +69,22 @@ class AuditEngine:
                 }
             )
 
-        summary = compute_summary(base_self, target_self, cross, success_rate=1.0)
+        success_rate = success_count / total_responses if total_responses else 0.0
+        summary = compute_summary(base_self, target_self, cross, success_rate=success_rate)
         error_messages = []
         for row in raw_interactions:
             if row["baseline_response"].startswith("[ERROR]"):
                 error_messages.append(f"Baseline endpoint error: {row['baseline_response']}")
             if row["target_response"].startswith("[ERROR]"):
                 error_messages.append(f"Target endpoint error: {row['target_response']}")
+        feasibility = round(min(float(summary["similarity"]), float(summary["confidence"])), 1)
+        verdict = summary["verdict"]
+        if error_messages and success_rate < 0.5:
+            verdict = "INCONCLUSIVE"
         return {
             **summary,
+            "verdict": verdict,
+            "feasibility": feasibility if verdict != "INCONCLUSIVE" else 0.0,
             "error_summary": error_messages[0] if error_messages else "",
             "raw_interactions": raw_interactions,
             "radar_data": radar_data,
