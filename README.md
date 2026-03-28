@@ -1,2 +1,38 @@
-# ShadowHunter-LLM-API
-理论支撑：基于 (2407.15847) 论文中的 8 维对抗性探针，激发模型底层固有概率分布； 结合 (2603.01919) 揭示的造假现状。 LLMmap影子API 多模态特征融合（多模态特征向量）：不再仅依赖 的语义余弦距离。 引入（Markdown AST 树相似度）与（Type-Token Ratio, TTR），三者加权计算最终距离矩阵。 句子-BERT结构距离词法距离
+# ShadowHunter-X
+
+ShadowHunter-X is a Streamlit-based single-process audit workstation for detecting shadow LLM APIs through active probing and Cross/Self Ratio statistics.
+
+## Stack
+
+- Python 3.11+
+- Streamlit
+- streamlit-echarts
+- LiteLLM
+- sentence-transformers
+- numpy
+- scipy
+- tenacity
+
+## Structure
+
+- `app.py`: Streamlit entrypoint
+- `core/engine.py`: async audit orchestration
+- `core/probes.py`: 8-dimension probes and three-turn traps
+- `core/distance.py`: semantic and structural distance logic
+- `core/statistics.py`: ratio, similarity, confidence, adaptive sampling
+- `adapters/llm_gateway.py`: LiteLLM unified gateway
+- `ui/charts.py`: ECharts option builders
+- `ui/theme.py`: cyber-audit CSS injection
+
+## Run
+
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+## Test
+
+```bash
+python -m pytest tests -q
+```

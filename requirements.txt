@@ -1,0 +1,9 @@
+httpx==0.28.1
+litellm==1.67.5
+numpy==2.2.4
+pytest==8.3.5
+scipy==1.15.2
+sentence-transformers==4.0.2
+streamlit==1.44.1
+streamlit-echarts==0.4.0
+tenacity==9.0.0
