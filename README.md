@@ -243,4 +243,4 @@ python -m pytest tests -q
 - 当前是单进程应用，不是分布式审计平台
 - 阈值逻辑透明，但未覆盖全部模型家族的精细校准
 - 对非常强的代理转发层，后续仍需要更丰富的特征与更大的探针池
-  [Linux do](https://linux.do/)
+- [Linux do](https://linux.do/)
